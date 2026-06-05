@@ -1,0 +1,199 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sinphony - Dashboard Musical Interactif{% endblock %}
+
+{% block body %}
+<div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <!-- Logo -->
+        <div class="logo">
+            <i data-lucide="music-4" class="logo-icon"></i>
+            <span>Sinphony</span>
+        </div>
+        
+        <!-- Navigation -->
+        <nav class="nav-menu">
+            <a href="#" class="nav-item active" data-view="all">
+                <i data-lucide="home"></i> Accueil
+            </a>
+            <a href="#" class="nav-item" data-view="Lofi">
+                <i data-lucide="coffee"></i> Lofi Beats
+            </a>
+            <a href="#" class="nav-item" data-view="Synthwave">
+                <i data-lucide="sunset"></i> Synthwave
+            </a>
+            <a href="#" class="nav-item" data-view="Cyberpunk">
+                <i data-lucide="cpu"></i> Cyberpunk
+            </a>
+            <a href="#" class="nav-item" id="nav-favs" data-view="favorites">
+                <i data-lucide="heart"></i> Favoris
+            </a>
+        </nav>
+        
+        <!-- Extra card for Visualizer info -->
+        <div class="visualizer-card">
+            <div class="glow-sphere"></div>
+            <i data-lucide="activity" class="neon-pulse"></i>
+            <h4>Visualiseur Actif</h4>
+            <p>Démarrez la lecture pour voir les ondes vibrer en temps réel.</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="search-bar">
+                <i data-lucide="search"></i>
+                <input type="text" id="search-input" placeholder="Rechercher par titre, artiste, album...">
+            </div>
+            <div class="user-badge">
+                <div class="status-indicator"></div>
+                <span>Auditeur Invité</span>
+            </div>
+        </header>
+
+        <!-- Main Views -->
+        <div id="view-container">
+            <!-- Featured Track (Hero Banner) -->
+            {% if featuredTrack %}
+            <section class="featured-hero" id="hero-banner" style="background-image: linear-gradient(to right, rgba(13, 11, 26, 0.95), rgba(13, 11, 26, 0.35)), url('{{ featuredTrack.coverPath }}')">
+                <div class="hero-content">
+                    <span class="badge">MÉTÉO DU JOUR</span>
+                    <h1 class="hero-title" id="hero-title-text">{{ featuredTrack.title }}</h1>
+                    <p class="hero-artist" id="hero-artist-text">{{ featuredTrack.artist }} • <span class="album-tag" id="hero-album-text">{{ featuredTrack.album }}</span></p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary play-now-btn" id="hero-play-btn" data-track-id="{{ featuredTrack.id }}">
+                            <i data-lucide="play-circle"></i> Écouter Maintenant
+                        </button>
+                        <button class="btn btn-secondary favorite-btn" id="hero-fav-btn" data-track-id="{{ featuredTrack.id }}">
+                            <i data-lucide="heart"></i> Favoris
+                        </button>
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Grid: Track List & Visualizer -->
+            <div class="dashboard-grid">
+                <!-- Track List -->
+                <section class="track-list-section card">
+                    <div class="section-header">
+                        <div>
+                            <h2>Titres Disponibles</h2>
+                            <p class="section-subtitle" id="track-count-text">{{ tracks|length }} morceaux en base de données</p>
+                        </div>
+                    </div>
+                    
+                    <div class="tracks-container" id="tracks-list-container">
+                        {% for track in tracks %}
+                        <div class="track-row" 
+                             data-track-id="{{ track.id }}" 
+                             data-src="{{ track.audioPath }}" 
+                             data-cover="{{ track.coverPath }}" 
+                             data-title="{{ track.title }}" 
+                             data-artist="{{ track.artist }}" 
+                             data-album="{{ track.album }}"
+                             data-genre="{{ track.genre }}">
+                            <div class="track-index">
+                                <span class="index-num">{{ "%02d"|format(loop.index) }}</span>
+                                <button class="row-play-btn"><i data-lucide="play"></i></button>
+                            </div>
+                            <div class="track-info-col">
+                                <img src="{{ track.coverPath }}" alt="{{ track.title }}" class="track-thumb">
+                                <div class="track-details">
+                                    <span class="track-name">{{ track.title }}</span>
+                                    <span class="track-meta">{{ track.artist }} • {{ track.album }}</span>
+                                </div>
+                            </div>
+                            <div class="track-genre-col">
+                                <span class="genre-badge">{{ track.genre }}</span>
+                            </div>
+                            <div class="track-actions-col">
+                                <button class="row-fav-btn" data-track-id="{{ track.id }}"><i data-lucide="heart"></i></button>
+                                <span class="track-duration">{{ "%02d:%02d"|format(track.duration // 60, track.duration % 60) }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <!-- Interactive Visualizer -->
+                <section class="visualizer-section card">
+                    <div class="section-header">
+                        <div>
+                            <h2>Spectre de Fréquences</h2>
+                            <p class="section-subtitle">Visualisation audio interactive</p>
+                        </div>
+                        <div class="visualizer-controls">
+                            <button class="viz-style-btn active" data-style="bars" title="Barres de Fréquence"><i data-lucide="bar-chart-3"></i></button>
+                            <button class="viz-style-btn" data-style="wave" title="Onde Temporelle"><i data-lucide="activity"></i></button>
+                            <button class="viz-style-btn" data-style="circle" title="Cercle Dynamique"><i data-lucide="circle-dot"></i></button>
+                        </div>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas id="visualizer-canvas"></canvas>
+                        <div class="canvas-overlay" id="visualizer-overlay">
+                            <div class="pulse-container">
+                                <div class="pulse-ring"></div>
+                                <i data-lucide="music-2" class="pulse-icon"></i>
+                            </div>
+                            <p>Démarrez la lecture pour lancer la visualisation</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Audio Player -->
+    <footer class="audio-player">
+        <audio id="main-audio"></audio>
+        
+        <!-- Track Details -->
+        <div class="player-track-info">
+            <img src="{{ featuredTrack ? featuredTrack.coverPath : '' }}" alt="" class="player-cover" id="player-cover">
+            <div class="player-details">
+                <span class="player-title" id="player-title">{{ featuredTrack ? featuredTrack.title : 'Aucune piste' }}</span>
+                <span class="player-artist" id="player-artist">{{ featuredTrack ? featuredTrack.artist : 'Sélectionnez un morceau' }}</span>
+            </div>
+            <button class="player-fav-btn" id="player-fav-btn" data-track-id="{{ featuredTrack ? featuredTrack.id : '' }}">
+                <i data-lucide="heart"></i>
+            </button>
+        </div>
+        
+        <!-- Player Controls -->
+        <div class="player-controls-container">
+            <div class="player-buttons">
+                <button class="ctrl-btn" id="shuffle-btn" title="Aléatoire"><i data-lucide="shuffle"></i></button>
+                <button class="ctrl-btn" id="prev-btn" title="Précédent"><i data-lucide="skip-back"></i></button>
+                <button class="ctrl-btn play-pause-btn" id="play-btn" title="Lire"><i data-lucide="play"></i></button>
+                <button class="ctrl-btn" id="next-btn" title="Suivant"><i data-lucide="skip-forward"></i></button>
+                <button class="ctrl-btn" id="repeat-btn" title="Répéter"><i data-lucide="repeat"></i></button>
+            </div>
+            
+            <div class="player-timeline">
+                <span class="time-label" id="current-time">00:00</span>
+                <div class="progress-bar-container" id="progress-container">
+                    <div class="progress-bar" id="progress-bar">
+                        <div class="progress-handle"></div>
+                    </div>
+                </div>
+                <span class="time-label" id="total-time">{{ featuredTrack ? "%02d:%02d"|format(featuredTrack.duration // 60, featuredTrack.duration % 60) : '00:00' }}</span>
+            </div>
+        </div>
+        
+        <!-- Volume & Extras -->
+        <div class="player-extra-controls">
+            <button class="ctrl-btn active" id="toggle-visualizer-btn" title="Afficher/Masquer le visualiseur"><i data-lucide="eye"></i></button>
+            <div class="volume-container">
+                <button class="ctrl-btn" id="volume-icon-btn"><i data-lucide="volume-2"></i></button>
+                <div class="volume-slider-container" id="volume-container">
+                    <div class="volume-slider" id="volume-slider"></div>
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>
+{% endblock %}
