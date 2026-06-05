@@ -1,199 +1,172 @@
-{% extends 'base.html.twig' %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinphony</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎵</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+</head>
+<body>
 
-{% block title %}Sinphony - Dashboard Musical Interactif{% endblock %}
+<div class="layout">
 
-{% block body %}
-<div class="app-container">
     <!-- Sidebar -->
     <aside class="sidebar">
-        <!-- Logo -->
         <div class="logo">
-            <i data-lucide="music-4" class="logo-icon"></i>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1db954"/><polygon points="10,8 10,16 17,12" fill="white"/></svg>
             <span>Sinphony</span>
         </div>
-        
-        <!-- Navigation -->
-        <nav class="nav-menu">
-            <a href="#" class="nav-item active" data-view="all">
-                <i data-lucide="home"></i> Accueil
+
+        <nav>
+            <a href="#" class="nav-link active" id="nav-library" onclick="showView('library')">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+                Ma bibliothèque
             </a>
-            <a href="#" class="nav-item" data-view="Lofi">
-                <i data-lucide="coffee"></i> Lofi Beats
-            </a>
-            <a href="#" class="nav-item" data-view="Synthwave">
-                <i data-lucide="sunset"></i> Synthwave
-            </a>
-            <a href="#" class="nav-item" data-view="Cyberpunk">
-                <i data-lucide="cpu"></i> Cyberpunk
-            </a>
-            <a href="#" class="nav-item" id="nav-favs" data-view="favorites">
-                <i data-lucide="heart"></i> Favoris
+            <a href="#" class="nav-link" id="nav-upload" onclick="showView('upload')">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+                Ajouter de la musique
             </a>
         </nav>
-        
-        <!-- Extra card for Visualizer info -->
-        <div class="visualizer-card">
-            <div class="glow-sphere"></div>
-            <i data-lucide="activity" class="neon-pulse"></i>
-            <h4>Visualiseur Actif</h4>
-            <p>Démarrez la lecture pour voir les ondes vibrer en temps réel.</p>
+
+        <!-- Playing now mini info -->
+        <div class="sidebar-now-playing" id="sidebar-now-playing" style="display:none">
+            <div class="snp-cover" id="snp-cover"></div>
+            <div class="snp-info">
+                <span id="snp-title">—</span>
+                <span id="snp-artist">—</span>
+            </div>
         </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Header -->
-        <header class="main-header">
-            <div class="search-bar">
-                <i data-lucide="search"></i>
-                <input type="text" id="search-input" placeholder="Rechercher par titre, artiste, album...">
-            </div>
-            <div class="user-badge">
-                <div class="status-indicator"></div>
-                <span>Auditeur Invité</span>
-            </div>
-        </header>
+    <!-- Main -->
+    <main class="main">
 
-        <!-- Main Views -->
-        <div id="view-container">
-            <!-- Featured Track (Hero Banner) -->
-            {% if featuredTrack %}
-            <section class="featured-hero" id="hero-banner" style="background-image: linear-gradient(to right, rgba(13, 11, 26, 0.95), rgba(13, 11, 26, 0.35)), url('{{ featuredTrack.coverPath }}')">
-                <div class="hero-content">
-                    <span class="badge">MÉTÉO DU JOUR</span>
-                    <h1 class="hero-title" id="hero-title-text">{{ featuredTrack.title }}</h1>
-                    <p class="hero-artist" id="hero-artist-text">{{ featuredTrack.artist }} • <span class="album-tag" id="hero-album-text">{{ featuredTrack.album }}</span></p>
-                    <div class="hero-actions">
-                        <button class="btn btn-primary play-now-btn" id="hero-play-btn" data-track-id="{{ featuredTrack.id }}">
-                            <i data-lucide="play-circle"></i> Écouter Maintenant
-                        </button>
-                        <button class="btn btn-secondary favorite-btn" id="hero-fav-btn" data-track-id="{{ featuredTrack.id }}">
-                            <i data-lucide="heart"></i> Favoris
-                        </button>
+        <!-- Library View -->
+        <div id="view-library">
+            <div class="view-header">
+                <h1>Ma bibliothèque</h1>
+                <span class="track-count" id="track-count">{{ tracks|length }} morceau{% if tracks|length > 1 %}x{% endif %}</span>
+            </div>
+
+            {% if tracks is empty %}
+            <div class="empty-state" id="empty-state">
+                <div class="empty-icon">🎵</div>
+                <h2>Ta bibliothèque est vide</h2>
+                <p>Ajoute tes fichiers MP3, WAV, OGG ou FLAC<br>et écoute-les hors ligne, sans pub, à l'infini.</p>
+                <button class="btn-primary" onclick="showView('upload')">Ajouter de la musique</button>
+            </div>
+            {% else %}
+            <div class="track-list" id="track-list">
+                {% for track in tracks %}
+                <div class="track-item" 
+                     data-id="{{ track.id }}"
+                     data-src="/music/uploads/{{ track.filename }}"
+                     data-title="{{ track.title }}"
+                     data-artist="{{ track.artist ?? 'Artiste inconnu' }}"
+                     data-duration="{{ track.duration }}">
+                    <div class="track-num">{{ loop.index }}</div>
+                    <div class="track-cover" style="background:{{ ['#1db95422','#e91e6322','#2196f322','#ff980022','#9c27b022','#00bcd422'][loop.index0 % 6] }}; color:{{ ['#1db954','#e91e63','#2196f3','#ff9800','#9c27b0','#00bcd4'][loop.index0 % 6] }}">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
                     </div>
+                    <div class="track-info">
+                        <span class="track-title">{{ track.title }}</span>
+                        <span class="track-artist">{{ track.artist ?? 'Artiste inconnu' }}{% if track.album %} • {{ track.album }}{% endif %}</span>
+                    </div>
+                    {% if track.genre %}
+                    <span class="track-genre">{{ track.genre }}</span>
+                    {% endif %}
+                    <span class="track-dur">{% if track.duration %}{{ (track.duration // 60) ~ ':' ~ '%02d'|format(track.duration % 60) }}{% else %}—{% endif %}</span>
+                    <button class="track-delete" data-id="{{ track.id }}" title="Supprimer">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
                 </div>
-            </section>
+                {% endfor %}
+            </div>
             {% endif %}
+        </div>
 
-            <!-- Grid: Track List & Visualizer -->
-            <div class="dashboard-grid">
-                <!-- Track List -->
-                <section class="track-list-section card">
-                    <div class="section-header">
-                        <div>
-                            <h2>Titres Disponibles</h2>
-                            <p class="section-subtitle" id="track-count-text">{{ tracks|length }} morceaux en base de données</p>
-                        </div>
-                    </div>
-                    
-                    <div class="tracks-container" id="tracks-list-container">
-                        {% for track in tracks %}
-                        <div class="track-row" 
-                             data-track-id="{{ track.id }}" 
-                             data-src="{{ track.audioPath }}" 
-                             data-cover="{{ track.coverPath }}" 
-                             data-title="{{ track.title }}" 
-                             data-artist="{{ track.artist }}" 
-                             data-album="{{ track.album }}"
-                             data-genre="{{ track.genre }}">
-                            <div class="track-index">
-                                <span class="index-num">{{ "%02d"|format(loop.index) }}</span>
-                                <button class="row-play-btn"><i data-lucide="play"></i></button>
-                            </div>
-                            <div class="track-info-col">
-                                <img src="{{ track.coverPath }}" alt="{{ track.title }}" class="track-thumb">
-                                <div class="track-details">
-                                    <span class="track-name">{{ track.title }}</span>
-                                    <span class="track-meta">{{ track.artist }} • {{ track.album }}</span>
-                                </div>
-                            </div>
-                            <div class="track-genre-col">
-                                <span class="genre-badge">{{ track.genre }}</span>
-                            </div>
-                            <div class="track-actions-col">
-                                <button class="row-fav-btn" data-track-id="{{ track.id }}"><i data-lucide="heart"></i></button>
-                                <span class="track-duration">{{ "%02d:%02d"|format(track.duration // 60, track.duration % 60) }}</span>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </section>
+        <!-- Upload View -->
+        <div id="view-upload" style="display:none">
+            <div class="view-header">
+                <h1>Ajouter de la musique</h1>
+            </div>
 
-                <!-- Interactive Visualizer -->
-                <section class="visualizer-section card">
-                    <div class="section-header">
-                        <div>
-                            <h2>Spectre de Fréquences</h2>
-                            <p class="section-subtitle">Visualisation audio interactive</p>
-                        </div>
-                        <div class="visualizer-controls">
-                            <button class="viz-style-btn active" data-style="bars" title="Barres de Fréquence"><i data-lucide="bar-chart-3"></i></button>
-                            <button class="viz-style-btn" data-style="wave" title="Onde Temporelle"><i data-lucide="activity"></i></button>
-                            <button class="viz-style-btn" data-style="circle" title="Cercle Dynamique"><i data-lucide="circle-dot"></i></button>
-                        </div>
-                    </div>
-                    <div class="canvas-container">
-                        <canvas id="visualizer-canvas"></canvas>
-                        <div class="canvas-overlay" id="visualizer-overlay">
-                            <div class="pulse-container">
-                                <div class="pulse-ring"></div>
-                                <i data-lucide="music-2" class="pulse-icon"></i>
-                            </div>
-                            <p>Démarrez la lecture pour lancer la visualisation</p>
-                        </div>
-                    </div>
-                </section>
+            <div class="upload-zone" id="upload-zone">
+                <div class="upload-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" fill="#1db954"/></svg>
+                </div>
+                <h2>Glisse tes fichiers ici</h2>
+                <p>MP3, WAV, OGG, FLAC — tous formats audio acceptés</p>
+                <label class="btn-primary" for="file-input">Choisir des fichiers</label>
+                <input type="file" id="file-input" accept="audio/*" multiple style="display:none">
+            </div>
+
+            <!-- Upload queue -->
+            <div id="upload-queue" style="display:none">
+                <h3>En cours d'import</h3>
+                <div id="upload-items"></div>
             </div>
         </div>
-    </main>
 
-    <!-- Bottom Audio Player -->
-    <footer class="audio-player">
-        <audio id="main-audio"></audio>
-        
-        <!-- Track Details -->
-        <div class="player-track-info">
-            <img src="{{ featuredTrack ? featuredTrack.coverPath : '' }}" alt="" class="player-cover" id="player-cover">
-            <div class="player-details">
-                <span class="player-title" id="player-title">{{ featuredTrack ? featuredTrack.title : 'Aucune piste' }}</span>
-                <span class="player-artist" id="player-artist">{{ featuredTrack ? featuredTrack.artist : 'Sélectionnez un morceau' }}</span>
-            </div>
-            <button class="player-fav-btn" id="player-fav-btn" data-track-id="{{ featuredTrack ? featuredTrack.id : '' }}">
-                <i data-lucide="heart"></i>
+    </main>
+</div>
+
+<!-- Player Bar -->
+<div class="player" id="player">
+    <audio id="audio"></audio>
+
+    <!-- Left: current track -->
+    <div class="player-left">
+        <div class="player-cover-wrap" id="player-cover-wrap">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        </div>
+        <div>
+            <div class="player-title" id="player-title">Aucun morceau</div>
+            <div class="player-artist" id="player-artist">—</div>
+        </div>
+    </div>
+
+    <!-- Center: controls -->
+    <div class="player-center">
+        <div class="player-btns">
+            <button class="p-btn" id="btn-shuffle" title="Aléatoire" onclick="toggleShuffle()">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+            </button>
+            <button class="p-btn" onclick="prevTrack()">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+            </button>
+            <button class="p-btn play-btn" id="btn-play" onclick="togglePlay()">
+                <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" width="26" height="26" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <button class="p-btn" onclick="nextTrack()">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            </button>
+            <button class="p-btn" id="btn-repeat" title="Répéter" onclick="toggleRepeat()">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
             </button>
         </div>
-        
-        <!-- Player Controls -->
-        <div class="player-controls-container">
-            <div class="player-buttons">
-                <button class="ctrl-btn" id="shuffle-btn" title="Aléatoire"><i data-lucide="shuffle"></i></button>
-                <button class="ctrl-btn" id="prev-btn" title="Précédent"><i data-lucide="skip-back"></i></button>
-                <button class="ctrl-btn play-pause-btn" id="play-btn" title="Lire"><i data-lucide="play"></i></button>
-                <button class="ctrl-btn" id="next-btn" title="Suivant"><i data-lucide="skip-forward"></i></button>
-                <button class="ctrl-btn" id="repeat-btn" title="Répéter"><i data-lucide="repeat"></i></button>
+        <div class="player-timeline">
+            <span id="time-current">0:00</span>
+            <div class="progress-track" id="progress-track">
+                <div class="progress-fill" id="progress-fill"></div>
             </div>
-            
-            <div class="player-timeline">
-                <span class="time-label" id="current-time">00:00</span>
-                <div class="progress-bar-container" id="progress-container">
-                    <div class="progress-bar" id="progress-bar">
-                        <div class="progress-handle"></div>
-                    </div>
-                </div>
-                <span class="time-label" id="total-time">{{ featuredTrack ? "%02d:%02d"|format(featuredTrack.duration // 60, featuredTrack.duration % 60) : '00:00' }}</span>
-            </div>
+            <span id="time-total">0:00</span>
         </div>
-        
-        <!-- Volume & Extras -->
-        <div class="player-extra-controls">
-            <button class="ctrl-btn active" id="toggle-visualizer-btn" title="Afficher/Masquer le visualiseur"><i data-lucide="eye"></i></button>
-            <div class="volume-container">
-                <button class="ctrl-btn" id="volume-icon-btn"><i data-lucide="volume-2"></i></button>
-                <div class="volume-slider-container" id="volume-container">
-                    <div class="volume-slider" id="volume-slider"></div>
-                </div>
-            </div>
+    </div>
+
+    <!-- Right: volume -->
+    <div class="player-right">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" style="color:#aaa"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        <div class="volume-track" id="volume-track">
+            <div class="volume-fill" id="volume-fill" style="width:70%"></div>
         </div>
-    </footer>
+    </div>
 </div>
-{% endblock %}
+
+<script src="{{ asset('js/player.js') }}"></script>
+</body>
+</html>

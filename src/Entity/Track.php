@@ -16,117 +16,47 @@ class Track
     #[ORM\Column(length: 255)]
     private ?string $title = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $artist = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $album = null;
 
-    #[ORM\Column]
+    #[ORM\Column(nullable: true)]
     private ?int $duration = null; // in seconds
 
     #[ORM\Column(length: 255)]
-    private ?string $audioPath = null;
+    private ?string $filename = null; // stored file in /public/music/uploads/
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $coverPath = null;
 
-    #[ORM\Column(length: 100)]
+    #[ORM\Column(length: 100, nullable: true)]
     private ?string $genre = null;
 
     #[ORM\Column]
-    private ?bool $isFeatured = false;
+    private ?\DateTimeImmutable $uploadedAt = null;
 
-    public function getId(): ?int
+    public function __construct()
     {
-        return $this->id;
+        $this->uploadedAt = new \DateTimeImmutable();
     }
 
-    public function getTitle(): ?string
-    {
-        return $this->title;
-    }
-
-    public function setTitle(string $title): static
-    {
-        $this->title = $title;
-        return $this;
-    }
-
-    public function getArtist(): ?string
-    {
-        return $this->artist;
-    }
-
-    public function setArtist(string $artist): static
-    {
-        $this->artist = $artist;
-        return $this;
-    }
-
-    public function getAlbum(): ?string
-    {
-        return $this->album;
-    }
-
-    public function setAlbum(string $album): static
-    {
-        $this->album = $album;
-        return $this;
-    }
-
-    public function getDuration(): ?int
-    {
-        return $this->duration;
-    }
-
-    public function setDuration(int $duration): static
-    {
-        $this->duration = $duration;
-        return $this;
-    }
-
-    public function getAudioPath(): ?string
-    {
-        return $this->audioPath;
-    }
-
-    public function setAudioPath(string $audioPath): static
-    {
-        $this->audioPath = $audioPath;
-        return $this;
-    }
-
-    public function getCoverPath(): ?string
-    {
-        return $this->coverPath;
-    }
-
-    public function setCoverPath(string $coverPath): static
-    {
-        $this->coverPath = $coverPath;
-        return $this;
-    }
-
-    public function getGenre(): ?string
-    {
-        return $this->genre;
-    }
-
-    public function setGenre(string $genre): static
-    {
-        $this->genre = $genre;
-        return $this;
-    }
-
-    public function isFeatured(): ?bool
-    {
-        return $this->isFeatured;
-    }
-
-    public function setIsFeatured(bool $isFeatured): static
-    {
-        $this->isFeatured = $isFeatured;
-        return $this;
-    }
+    public function getId(): ?int { return $this->id; }
+    public function getTitle(): ?string { return $this->title; }
+    public function setTitle(string $title): static { $this->title = $title; return $this; }
+    public function getArtist(): ?string { return $this->artist; }
+    public function setArtist(?string $artist): static { $this->artist = $artist; return $this; }
+    public function getAlbum(): ?string { return $this->album; }
+    public function setAlbum(?string $album): static { $this->album = $album; return $this; }
+    public function getDuration(): ?int { return $this->duration; }
+    public function setDuration(?int $duration): static { $this->duration = $duration; return $this; }
+    public function getFilename(): ?string { return $this->filename; }
+    public function setFilename(string $filename): static { $this->filename = $filename; return $this; }
+    public function getCoverPath(): ?string { return $this->coverPath; }
+    public function setCoverPath(?string $coverPath): static { $this->coverPath = $coverPath; return $this; }
+    public function getGenre(): ?string { return $this->genre; }
+    public function setGenre(?string $genre): static { $this->genre = $genre; return $this; }
+    public function getUploadedAt(): ?\DateTimeImmutable { return $this->uploadedAt; }
+    public function setUploadedAt(\DateTimeImmutable $uploadedAt): static { $this->uploadedAt = $uploadedAt; return $this; }
 }
