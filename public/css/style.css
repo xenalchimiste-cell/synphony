@@ -540,6 +540,10 @@ html, body {
     z-index: 1;
 }
 
+.progress-track.is-seeking .progress-fill {
+    transition: none;
+}
+
 .progress-track:hover .progress-fill {
     background: var(--green);
     height: 6px;

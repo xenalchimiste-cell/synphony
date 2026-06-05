@@ -10,34 +10,48 @@ let volume = 0.7;
 audio.volume = volume;
 
 // === INIT: collect all track items from DOM ===
-function initTracks() {
+function syncTracks() {
     const items = document.querySelectorAll('.track-item');
-    tracks = [];
-    items.forEach((el, i) => {
-        tracks.push({
-            id: el.dataset.id,
-            src: el.dataset.src,
-            title: el.dataset.title,
-            artist: el.dataset.artist,
-            duration: el.dataset.duration ? parseInt(el.dataset.duration) : null,
-            el: el
-        });
+    tracks = Array.from(items).map(el => ({
+        id: el.dataset.id,
+        src: el.dataset.src,
+        title: el.dataset.title,
+        artist: el.dataset.artist,
+        duration: el.dataset.duration ? parseInt(el.dataset.duration) : null,
+        el
+    }));
+}
 
-        // Click to play
-        el.addEventListener('click', (e) => {
-            if (e.target.closest('.track-delete')) return;
-            playIdx(i);
-        });
+function getTrackIndexById(id) {
+    return tracks.findIndex(t => t.id === String(id));
+}
 
-        // Delete button
-        const delBtn = el.querySelector('.track-delete');
-        if (delBtn) {
-            delBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteTrack(el.dataset.id, el);
-            });
-        }
-    });
+function onTrackListClick(e) {
+    const delBtn = e.target.closest('.track-delete');
+    if (delBtn) {
+        e.stopPropagation();
+        const item = delBtn.closest('.track-item');
+        if (item) deleteTrack(item.dataset.id, item);
+        return;
+    }
+
+    const item = e.target.closest('.track-item');
+    if (!item) return;
+
+    const idx = getTrackIndexById(item.dataset.id);
+    if (idx !== -1) playIdx(idx);
+}
+
+function bindTrackListEvents() {
+    const listEl = document.getElementById('track-list');
+    if (!listEl) return;
+    listEl.removeEventListener('click', onTrackListClick);
+    listEl.addEventListener('click', onTrackListClick);
+}
+
+function initTracks() {
+    syncTracks();
+    bindTrackListEvents();
 }
 
 initTracks();
@@ -54,13 +68,40 @@ function showView(view) {
 }
 
 // === PLAYBACK ===
+function isSameSrc(trackSrc) {
+    if (!audio.src || !trackSrc) return false;
+    try {
+        const current = new URL(audio.src, window.location.origin).pathname;
+        const next = new URL(trackSrc, window.location.origin).pathname;
+        return current === next;
+    } catch {
+        return audio.src.endsWith(trackSrc);
+    }
+}
+
 function playIdx(idx) {
     if (idx < 0 || idx >= tracks.length) return;
 
-    currentIdx = idx;
     const t = tracks[idx];
 
-    audio.src = t.src;
+    // Même piste : pause/reprise sans recharger (évite le retour à 0)
+    if (currentIdx === idx && isSameSrc(t.src)) {
+        if (isPlaying) {
+            audio.pause();
+            isPlaying = false;
+        } else {
+            audio.play().then(() => { isPlaying = true; }).catch(err => console.error('Playback error:', err));
+        }
+        updatePlayUI();
+        return;
+    }
+
+    currentIdx = idx;
+
+    if (!isSameSrc(t.src)) {
+        audio.src = t.src;
+    }
+
     audio.play().then(() => {
         isPlaying = true;
         updatePlayUI();
@@ -125,35 +166,92 @@ audio.addEventListener('ended', () => {
 
 let isDraggingTime = false;
 let isDraggingVolume = false;
+let pendingSeekPct = null;
+let seekFinishTimer = null;
 
-audio.addEventListener('timeupdate', () => {
-    if (isDraggingTime) return;
-    if (!audio.duration) return;
-    const pct = (audio.currentTime / audio.duration) * 100;
-    document.getElementById('progress-fill').style.width = pct + '%';
-    document.getElementById('time-current').textContent = formatTime(audio.currentTime);
-    document.getElementById('time-total').textContent = formatTime(audio.duration);
-});
-
-// Drag to Seek
 const progressTrack = document.getElementById('progress-track');
 const progressFill = document.getElementById('progress-fill');
 const timeCurrent = document.getElementById('time-current');
 
 function setTimeFromEvent(e) {
-    if (!audio.duration) return 0;
     const rect = progressTrack.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    return pct;
+    if (!rect.width) return 0;
+    return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 }
 
-progressTrack.addEventListener('mousedown', (e) => {
-    if (!audio.duration) return;
-    isDraggingTime = true;
-    const pct = setTimeFromEvent(e);
+function getMaxSeekTime() {
+    if (!audio.duration || !isFinite(audio.duration)) return 0;
+    if (audio.seekable && audio.seekable.length > 0) {
+        return audio.seekable.end(audio.seekable.length - 1);
+    }
+    return audio.duration;
+}
+
+function updateProgressUI(pct) {
+    if (!audio.duration || !isFinite(audio.duration)) return;
     progressFill.style.width = (pct * 100) + '%';
     timeCurrent.textContent = formatTime(pct * audio.duration);
+}
+
+function finishSeek() {
+    pendingSeekPct = null;
+    isDraggingTime = false;
+    progressTrack.classList.remove('is-seeking');
+    if (seekFinishTimer) {
+        clearTimeout(seekFinishTimer);
+        seekFinishTimer = null;
+    }
+}
+
+function seekToPercent(pct) {
+    const maxTime = getMaxSeekTime();
+    if (!maxTime) return;
+
+    pct = Math.max(0, Math.min(1, pct));
+    pendingSeekPct = pct;
+    progressTrack.classList.add('is-seeking');
+    updateProgressUI(pct);
+
+    const seekTime = Math.min(pct * maxTime, Math.max(0, maxTime - 0.01));
+    audio.currentTime = seekTime;
+
+    if (seekFinishTimer) clearTimeout(seekFinishTimer);
+    seekFinishTimer = setTimeout(finishSeek, 400);
+}
+
+progressTrack.addEventListener('pointerdown', (e) => {
+    if (!getMaxSeekTime()) return;
+    e.preventDefault();
+    isDraggingTime = true;
+    progressTrack.setPointerCapture(e.pointerId);
+    seekToPercent(setTimeFromEvent(e));
 });
+
+progressTrack.addEventListener('pointermove', (e) => {
+    if (!isDraggingTime) return;
+    seekToPercent(setTimeFromEvent(e));
+});
+
+progressTrack.addEventListener('pointerup', (e) => {
+    if (!isDraggingTime) return;
+    seekToPercent(setTimeFromEvent(e));
+    try { progressTrack.releasePointerCapture(e.pointerId); } catch (_) {}
+});
+
+progressTrack.addEventListener('pointercancel', () => {
+    finishSeek();
+});
+
+audio.addEventListener('timeupdate', () => {
+    if (isDraggingTime || pendingSeekPct !== null) return;
+    if (!audio.duration || !isFinite(audio.duration)) return;
+    const pct = (audio.currentTime / audio.duration) * 100;
+    progressFill.style.width = pct + '%';
+    timeCurrent.textContent = formatTime(audio.currentTime);
+    document.getElementById('time-total').textContent = formatTime(audio.duration);
+});
+
+audio.addEventListener('seeked', finishSeek);
 
 // Drag Volume
 const volumeTrack = document.getElementById('volume-track');
@@ -161,40 +259,37 @@ const volumeFill = document.getElementById('volume-fill');
 
 function setVolumeFromEvent(e) {
     const rect = volumeTrack.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    return pct;
+    if (!rect.width) return volume;
+    return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 }
 
-volumeTrack.addEventListener('mousedown', (e) => {
-    isDraggingVolume = true;
-    const pct = setVolumeFromEvent(e);
+function setVolumePercent(pct) {
+    volume = pct;
     audio.volume = pct;
     volumeFill.style.width = (pct * 100) + '%';
+}
+
+volumeTrack.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    isDraggingVolume = true;
+    volumeTrack.setPointerCapture(e.pointerId);
+    setVolumePercent(setVolumeFromEvent(e));
 });
 
-// Global mouse events for smooth dragging
-document.addEventListener('mousemove', (e) => {
-    if (isDraggingTime) {
-        const pct = setTimeFromEvent(e);
-        progressFill.style.width = (pct * 100) + '%';
-        timeCurrent.textContent = formatTime(pct * audio.duration);
-    }
-    if (isDraggingVolume) {
-        const pct = setVolumeFromEvent(e);
-        audio.volume = pct;
-        volumeFill.style.width = (pct * 100) + '%';
-    }
+volumeTrack.addEventListener('pointermove', (e) => {
+    if (!isDraggingVolume) return;
+    setVolumePercent(setVolumeFromEvent(e));
 });
 
-document.addEventListener('mouseup', (e) => {
-    if (isDraggingTime) {
-        const pct = setTimeFromEvent(e);
-        audio.currentTime = pct * audio.duration;
-        isDraggingTime = false;
-    }
-    if (isDraggingVolume) {
-        isDraggingVolume = false;
-    }
+volumeTrack.addEventListener('pointerup', (e) => {
+    if (!isDraggingVolume) return;
+    setVolumePercent(setVolumeFromEvent(e));
+    isDraggingVolume = false;
+    volumeTrack.releasePointerCapture(e.pointerId);
+});
+
+volumeTrack.addEventListener('pointercancel', () => {
+    isDraggingVolume = false;
 });
 
 // === UI HELPERS ===
@@ -206,8 +301,9 @@ function updatePlayUI() {
 }
 
 function updateActiveTrack() {
-    document.querySelectorAll('.track-item').forEach((el, i) => {
-        el.classList.toggle('playing', i === currentIdx);
+    const currentId = currentIdx >= 0 && tracks[currentIdx] ? tracks[currentIdx].id : null;
+    document.querySelectorAll('.track-item').forEach(el => {
+        el.classList.toggle('playing', el.dataset.id === currentId);
     });
 }
 
@@ -253,9 +349,11 @@ async function deleteTrack(id, el) {
     const res = await fetch(`/delete/${id}`, { method: 'DELETE' });
     if (!res.ok) return;
 
-    // If currently playing this track, stop
-    const idx = tracks.findIndex(t => t.id === id);
-    if (idx === currentIdx) {
+    const idx = getTrackIndexById(id);
+    const wasPlaying = idx !== -1 && idx === currentIdx;
+    const playingId = !wasPlaying && currentIdx !== -1 ? tracks[currentIdx]?.id : null;
+
+    if (wasPlaying) {
         audio.pause();
         audio.src = '';
         isPlaying = false;
@@ -267,10 +365,11 @@ async function deleteTrack(id, el) {
     }
 
     el.remove();
-    tracks.splice(idx, 1);
+    syncTracks();
 
-    // Reindex currentIdx
-    if (idx < currentIdx) currentIdx--;
+    if (!wasPlaying && playingId) {
+        currentIdx = getTrackIndexById(playingId);
+    }
 
     // Update count
     const countEl = document.getElementById('track-count');
@@ -417,21 +516,8 @@ function addTrackToLibrary(track) {
         </button>`;
 
     listEl.prepend(el);
-
-    const newIdx = 0;
-    const trackData = { id: String(track.id), src: track.src, title: track.title, artist: track.artist, duration: track.duration, el };
-    tracks.unshift(trackData);
-
-    // Bind events
-    el.addEventListener('click', (e) => {
-        if (e.target.closest('.track-delete')) return;
-        playIdx(0); // newly added tracks are at index 0
-    });
-
-    el.querySelector('.track-delete').addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteTrack(String(track.id), el);
-    });
+    syncTracks();
+    bindTrackListEvents();
 
     // Update track count
     const countEl = document.getElementById('track-count');
