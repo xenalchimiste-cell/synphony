@@ -123,7 +123,11 @@ audio.addEventListener('ended', () => {
     }
 });
 
+let isDraggingTime = false;
+let isDraggingVolume = false;
+
 audio.addEventListener('timeupdate', () => {
+    if (isDraggingTime) return;
     if (!audio.duration) return;
     const pct = (audio.currentTime / audio.duration) * 100;
     document.getElementById('progress-fill').style.width = pct + '%';
@@ -131,20 +135,66 @@ audio.addEventListener('timeupdate', () => {
     document.getElementById('time-total').textContent = formatTime(audio.duration);
 });
 
-// Seek
-document.getElementById('progress-track').addEventListener('click', (e) => {
+// Drag to Seek
+const progressTrack = document.getElementById('progress-track');
+const progressFill = document.getElementById('progress-fill');
+const timeCurrent = document.getElementById('time-current');
+
+function setTimeFromEvent(e) {
+    if (!audio.duration) return 0;
+    const rect = progressTrack.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    return pct;
+}
+
+progressTrack.addEventListener('mousedown', (e) => {
     if (!audio.duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    audio.currentTime = pct * audio.duration;
+    isDraggingTime = true;
+    const pct = setTimeFromEvent(e);
+    progressFill.style.width = (pct * 100) + '%';
+    timeCurrent.textContent = formatTime(pct * audio.duration);
 });
 
-// Volume
-document.getElementById('volume-track').addEventListener('click', (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    volume = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    audio.volume = volume;
-    document.getElementById('volume-fill').style.width = (volume * 100) + '%';
+// Drag Volume
+const volumeTrack = document.getElementById('volume-track');
+const volumeFill = document.getElementById('volume-fill');
+
+function setVolumeFromEvent(e) {
+    const rect = volumeTrack.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    return pct;
+}
+
+volumeTrack.addEventListener('mousedown', (e) => {
+    isDraggingVolume = true;
+    const pct = setVolumeFromEvent(e);
+    audio.volume = pct;
+    volumeFill.style.width = (pct * 100) + '%';
+});
+
+// Global mouse events for smooth dragging
+document.addEventListener('mousemove', (e) => {
+    if (isDraggingTime) {
+        const pct = setTimeFromEvent(e);
+        progressFill.style.width = (pct * 100) + '%';
+        timeCurrent.textContent = formatTime(pct * audio.duration);
+    }
+    if (isDraggingVolume) {
+        const pct = setVolumeFromEvent(e);
+        audio.volume = pct;
+        volumeFill.style.width = (pct * 100) + '%';
+    }
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (isDraggingTime) {
+        const pct = setTimeFromEvent(e);
+        audio.currentTime = pct * audio.duration;
+        isDraggingTime = false;
+    }
+    if (isDraggingVolume) {
+        isDraggingVolume = false;
+    }
 });
 
 // === UI HELPERS ===
