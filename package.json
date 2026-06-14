@@ -1,0 +1,23 @@
+{
+  "name": "sinphony",
+  "version": "1.0.0",
+  "description": "Application de lecteur musical Progressive Web App avec support offline",
+  "main": "index.js",
+  "scripts": {
+    "dev": "php bin/console server:run",
+    "build": "echo 'Build complete'",
+    "start": "php bin/console server:run --env=prod"
+  },
+  "keywords": [
+    "music",
+    "player",
+    "pwa",
+    "offline",
+    "web-app"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

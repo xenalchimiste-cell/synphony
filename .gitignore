@@ -8,3 +8,27 @@
 /var/
 /vendor/
 ###< symfony/framework-bundle ###
+
+###> Node & npm ###
+node_modules/
+npm-debug.log
+yarn-error.log
+.npmrc
+###< Node & npm ###
+
+###> IDE ###
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+###< IDE ###
+
+###> Vercel ###
+.vercel/
+###< Vercel ###
+
+###> Environment ###
+.env
+/public/music/uploads/

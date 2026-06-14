@@ -1,0 +1,22 @@
+{% macro home_card(track) %}
+<div class="home-card playable-track"
+     data-id="{{ track.id }}"
+     data-src="{{ path('app_music_stream', {filename: track.filename}) }}"
+     data-title="{{ track.title }}"
+     data-artist="{{ track.artist ?? 'Artiste inconnu' }}"
+     data-duration="{{ track.duration }}"
+     {% if track.coverPath %}data-cover="{{ asset(track.coverPath) }}"{% endif %}>
+    <div class="home-card-cover">
+        {% if track.coverPath %}
+            <img src="{{ asset(track.coverPath) }}" alt="{{ track.title }}">
+        {% else %}
+            <div class="home-card-fallback">🎵</div>
+        {% endif %}
+        <button class="home-card-play" aria-label="Lire {{ track.title }}">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+    </div>
+    <div class="home-card-title">{{ track.title }}</div>
+    <div class="home-card-artist">{{ track.artist ?? 'Artiste inconnu' }}</div>
+</div>
+{% endmacro %}

@@ -1,0 +1,49 @@
+{
+  "name": "Sinphony",
+  "short_name": "Sinphony",
+  "description": "Application de lecteur musical offline avec support PWA",
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/",
+  "background_color": "#121212",
+  "theme_color": "#1db954",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 192 192%22><text y=%22140%22 font-size=%22140%22>🎵</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22><text y=%22370%22 font-size=%22370%22>🎵</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["music", "entertainment"],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 540 720%22><rect fill=%22%23121212%22 width=%22540%22 height=%22720%22/><text x=%22270%22 y=%22360%22 text-anchor=%22middle%22 fill=%22%231db954%22 font-size=%22120%22>🎵</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ma bibliothèque",
+      "short_name": "Bibliothèque",
+      "description": "Accéder à mes musiques",
+      "url": "/?view=library",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 192 192%22><text y=%22140%22 font-size=%22140%22>🎵</text></svg>",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
