@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "installCommand": "curl -sS https://getcomposer.org/installer | php && php composer.phar install --no-dev --optimize-autoloader",
-  "buildCommand": "mkdir -p var/cache var/log && APP_ENV=prod APP_DEBUG=0 php bin/console cache:clear --no-warmup 2>/dev/null || true",
+  "installCommand": "npm install -g vercel",
+  "buildCommand": "curl -sS https://getcomposer.org/installer | php8.2 && php8.2 composer.phar install --no-dev --optimize-autoloader && mkdir -p var/cache var/log && APP_ENV=prod APP_DEBUG=0 php8.2 bin/console cache:clear --no-warmup 2>/dev/null || true",
   "outputDirectory": "public",
   "functions": {
     "api/index.php": {
