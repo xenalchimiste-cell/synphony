@@ -1,13 +1,13 @@
-const CACHE_NAME = 'sinphony-v1';
+const CACHE_NAME = 'sinphony-v2';
 const RUNTIME_CACHE = 'sinphony-runtime';
 const AUDIO_CACHE = 'sinphony-audio';
 
-// Assets à mettre en cache au premier chargement
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html',
   '/manifest.json',
-  '/favicon.ico',
+  '/css/style.css',
+  '/js/player.js',
+  '/icons/icon.svg',
 ];
 
 // Installation du service worker
@@ -53,8 +53,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Traitement des fichiers audio (MP3, WAV, etc.)
-  if (isAudioFile(url.pathname)) {
+  // Traitement des fichiers audio
+  if (isAudioFile(url.pathname) || url.pathname.startsWith('/audio/')) {
     event.respondWith(handleAudioRequest(request));
     return;
   }
@@ -198,12 +198,11 @@ function handleApiRequest(request) {
 }
 
 /**
- * Gestion par défaut : network-first avec fallback à index.html (pour SPA)
+ * Gestion par défaut : network-first avec fallback cache
  */
 function handleDefaultRequest(request) {
   return fetch(request)
     .then((response) => {
-      // Mettre en cache les réponses réussies
       if (response && response.status === 200) {
         const responseToCache = response.clone();
         caches.open(RUNTIME_CACHE).then((cache) => {
@@ -213,12 +212,11 @@ function handleDefaultRequest(request) {
       return response;
     })
     .catch(() => {
-      console.log('[Service Worker] Fallback à index.html:', request.url);
-      return caches.match('/index.html').then((response) => {
-        if (response) {
-          return response;
-        }
-        return new Response('Contenu indisponible', { status: 503 });
+      return caches.match(request).then((response) => {
+        if (response) return response;
+        return caches.match('/').then((fallback) => {
+          return fallback || new Response('Hors ligne', { status: 503 });
+        });
       });
     });
 }

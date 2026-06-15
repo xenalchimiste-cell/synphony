@@ -169,14 +169,19 @@ function updatePlayerVisibility() {
 }
 
 function showView(view) {
-  document.getElementById("view-home").style.display =
-    view === "home" ? "block" : "none";
-  document.getElementById("view-library").style.display =
-    view === "library" ? "block" : "none";
-  document.getElementById("view-upload").style.display =
-    view === "upload" ? "block" : "none";
-  document.getElementById("view-search").style.display =
-    view === "search" ? "block" : "none";
+  const views = ["home", "library", "upload", "search"];
+
+  views.forEach((v) => {
+    const el = document.getElementById("view-" + v);
+    if (!el) return;
+    const active = v === view;
+    el.style.display = active ? "block" : "none";
+    if (active) {
+      el.classList.remove("view-enter");
+      void el.offsetWidth;
+      el.classList.add("view-enter");
+    }
+  });
 
   document
     .getElementById("nav-home")
@@ -191,7 +196,16 @@ function showView(view) {
     .getElementById("nav-search")
     .classList.toggle("active", view === "search");
 
+  const url = view === "home" ? "/" : `/?view=${view}`;
+  history.replaceState({ view }, "", url);
+
   return false;
+}
+
+// Ouvrir la bonne vue depuis l'URL (raccourcis PWA)
+const initialView = new URLSearchParams(location.search).get("view");
+if (initialView && document.getElementById("view-" + initialView)) {
+  showView(initialView);
 }
 
 // === PLAYBACK ===

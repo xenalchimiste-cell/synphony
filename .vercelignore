@@ -1,0 +1,8 @@
+vendor/
+var/
+.env
+.env.local
+.git
+node_modules/
+.vercel/
+public/music/uploads/

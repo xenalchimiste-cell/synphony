@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: sinphony
+    runtime: php
+    plan: free
+    buildCommand: composer install --no-dev --optimize-autoloader && php bin/console cache:clear --env=prod
+    startCommand: php -S 0.0.0.0:$PORT -t public public/index.php
+    envVars:
+      - key: APP_ENV
+        value: prod
+      - key: APP_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///%kernel.project_dir%/var/data.db

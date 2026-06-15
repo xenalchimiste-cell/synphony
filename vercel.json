@@ -1,92 +1,41 @@
 {
   "version": 2,
-  "buildCommand": "echo 'Building...'",
-  "installCommand": "npm install",
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "rewrites": [
-    {
-      "source": "/service-worker.js",
-      "destination": "/service-worker.js"
-    },
-    {
-      "source": "/manifest.json",
-      "destination": "/manifest.json"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "$SYMFONY_API_URL/api/:path*"
-    },
-    {
-      "source": "/audio/:path*",
-      "destination": "$SYMFONY_API_URL/audio/:path*"
-    },
-    {
-      "source": "/music/:path*",
-      "destination": "$SYMFONY_API_URL/music/:path*"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/index.html"
+  "installCommand": "composer install --no-dev --optimize-autoloader",
+  "buildCommand": "mkdir -p var/cache var/log && APP_ENV=prod APP_DEBUG=0 php bin/console cache:clear --no-warmup 2>/dev/null || true",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.php": {
+      "runtime": "vercel-php@0.7.1",
+      "includeFiles": "{src/**,config/**,templates/**,vendor/**,public/**,bin/**,composer.json,composer.lock,symfony.lock}"
     }
+  },
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/service-worker.js", "dest": "/service-worker.js" },
+    { "src": "/manifest.json", "dest": "/manifest.json" },
+    { "src": "/(.*\\.(js|css|svg|png|jpg|jpeg|gif|webp|ico|mp3|woff2?|ttf|otf))", "dest": "/$1" },
+    { "src": "/(.*)", "dest": "/api/index.php" }
   ],
   "headers": [
     {
       "source": "/service-worker.js",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        },
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
       ]
     },
     {
       "source": "/manifest.json",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/manifest+json"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)\\.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)\\.css",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
+        { "key": "Content-Type", "value": "application/manifest+json" },
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
       ]
     }
   ]
