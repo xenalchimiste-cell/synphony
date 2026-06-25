@@ -3,5 +3,10 @@
 declare(strict_types=1);
 
 // Point d'entrée Vercel serverless → Symfony
+if (isset($_ENV['VERCEL']) || isset($_ENV['NOW_REGION'])) {
+    if (!file_exists('/tmp/data.db') && file_exists(dirname(__DIR__) . '/var/data.db')) {
+        copy(dirname(__DIR__) . '/var/data.db', '/tmp/data.db');
+    }
+}
 chdir(dirname(__DIR__));
-require dirname(__DIR__) . '/public/index.php';
+return require dirname(__DIR__) . '/public/index.php';

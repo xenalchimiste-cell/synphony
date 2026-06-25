@@ -3,9 +3,7 @@
   "version": "1.0.0",
   "description": "Sinphony — lecteur musical PWA rap FR",
   "private": true,
-  "scripts": {
-    "build": "composer install --no-dev --optimize-autoloader && mkdir -p var/cache var/log"
-  },
+  "scripts": {},
   "engines": {
     "node": ">=18.0.0"
   }

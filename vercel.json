@@ -1,21 +1,20 @@
 {
   "version": 2,
-  "installCommand": "npm install -g vercel",
-  "buildCommand": "curl -sS https://getcomposer.org/installer | php8.2 && php8.2 composer.phar install --no-dev --optimize-autoloader && mkdir -p var/cache var/log && APP_ENV=prod APP_DEBUG=0 php8.2 bin/console cache:clear --no-warmup 2>/dev/null || true",
-  "outputDirectory": "public",
   "functions": {
     "api/index.php": {
-      "runtime": "vercel-php@0.7.1",
+      "runtime": "vercel-php@0.9.0",
       "includeFiles": "{src/**,config/**,templates/**,vendor/**,public/**,bin/**,composer.json,composer.lock,symfony.lock}"
     }
   },
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/service-worker.js", "dest": "/service-worker.js" },
-    { "src": "/manifest.json", "dest": "/manifest.json" },
-    { "src": "/(.*\\.(js|css|svg|png|jpg|jpeg|gif|webp|ico|mp3|woff2?|ttf|otf))", "dest": "/$1" },
+    { "src": "/service-worker.js", "dest": "/public/service-worker.js" },
+    { "src": "/manifest.json", "dest": "/public/manifest.json" },
+    { "src": "/(.*\\.(js|css|svg|png|jpg|jpeg|gif|webp|ico|mp3|woff2?|ttf|otf))", "dest": "/public/$1" },
     { "src": "/(.*)", "dest": "/api/index.php" }
   ],
+  "env": {
+    "DATABASE_URL": "sqlite:////tmp/data.db"
+  },
   "headers": [
     {
       "source": "/service-worker.js",

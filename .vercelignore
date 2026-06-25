@@ -1,8 +1,9 @@
 vendor/
-var/
-.env
+var/cache/
+var/log/
 .env.local
 .git
 node_modules/
 .vercel/
-public/music/uploads/
+!public/music/uploads/
+!public/music/uploads/**

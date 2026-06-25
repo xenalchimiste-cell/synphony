@@ -7,6 +7,72 @@ const API_URL =
     ? process.env.REACT_APP_API_URL
     : window.location.origin;
 
+// === WAKE LOCK API (empêche l'écran/processeur de suspendre l'audio) ===
+let wakeLock = null;
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => {
+      wakeLock = null;
+    });
+  } catch (err) {
+    // WakeLock non accordé (batterie faible, etc.) — pas bloquant
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) {
+    try { await wakeLock.release(); } catch (_) {}
+    wakeLock = null;
+  }
+}
+
+// Ré-acquérir le Wake Lock si la page redevient visible (ex: retour d'écran de veille)
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && isPlaying) {
+    await requestWakeLock();
+  }
+});
+
+// === IOS AUDIO CONTEXT KEEP-ALIVE ===
+// iOS Safari suspend l'audio si l'AudioContext est fermé. On le maintient actif
+// avec un buffer silencieux toutes les 20 secondes.
+let _iosAudioCtx = null;
+let _iosKeepAliveInterval = null;
+
+function startIosKeepAlive() {
+  if (_iosKeepAliveInterval) return;
+  try {
+    if (!_iosAudioCtx) {
+      _iosAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_iosAudioCtx.state === "suspended") {
+      _iosAudioCtx.resume();
+    }
+    _iosKeepAliveInterval = setInterval(() => {
+      if (_iosAudioCtx && _iosAudioCtx.state !== "closed") {
+        // Jouer un buffer vide (0.001 s) pour maintenir l'activité audio
+        const buf = _iosAudioCtx.createBuffer(1, 1, 22050);
+        const src = _iosAudioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(_iosAudioCtx.destination);
+        src.start();
+      }
+    }, 20000);
+  } catch (_) {
+    // AudioContext non supporté
+  }
+}
+
+function stopIosKeepAlive() {
+  if (_iosKeepAliveInterval) {
+    clearInterval(_iosKeepAliveInterval);
+    _iosKeepAliveInterval = null;
+  }
+}
+
 // === MEDIA SESSION API (lecture en arrière-plan sur mobile) ===
 // Permet d'afficher les contrôles sur l'écran de verrouillage iOS/Android
 function setupMediaSession() {
@@ -107,7 +173,9 @@ let isRepeat = false;
 let volume = 0.7;
 
 audio.volume = volume;
-audio.preload = "none"; // Ne pas précharger automatiquement (économise la data mobile)
+// "metadata" est nécessaire sur iOS pour que la lecture en arrière-plan fonctionne.
+// "none" empêche iOS d'initialiser correctement la piste audio.
+audio.preload = "metadata";
 
 // Initialiser la Media Session après avoir accès à l'élément audio
 setupMediaSession();
@@ -259,6 +327,9 @@ function playIdx(idx) {
       // Mise à jour Media Session pour l'écran de verrouillage
       updateMediaSessionMetadata(t);
       updateMediaSessionState();
+      // Activer Wake Lock + keep-alive iOS pour maintenir l'audio en veille
+      requestWakeLock();
+      startIosKeepAlive();
     })
     .catch((err) => console.error("Playback error:", err));
 }
@@ -316,6 +387,9 @@ audio.addEventListener("ended", () => {
     audio.currentTime = 0;
     audio.play();
   } else {
+    // Libérer Wake Lock et keep-alive iOS quand la piste se termine
+    releaseWakeLock();
+    stopIosKeepAlive();
     nextTrack();
   }
 });
@@ -327,12 +401,16 @@ audio.addEventListener("play", () => {
   isPlaying = true;
   updatePlayUI();
   updateMediaSessionState();
+  requestWakeLock();
+  startIosKeepAlive();
 });
 
 audio.addEventListener("pause", () => {
   isPlaying = false;
   updatePlayUI();
   updateMediaSessionState();
+  releaseWakeLock();
+  stopIosKeepAlive();
 });
 
 let isSeeking = false;
@@ -383,8 +461,8 @@ audio.addEventListener("timeupdate", () => {
   const pctDisplay = Math.round(pct * 100);
   document.documentElement.style.setProperty("--mobile-progress", pctDisplay);
 
-  // Mettre à jour la position Media Session toutes les 5 secondes
-  if (Math.round(audio.currentTime) % 5 === 0) {
+  // Mettre à jour la position Media Session toutes les 2 secondes (iOS exige une mise à jour fréquente)
+  if (Math.round(audio.currentTime) % 2 === 0) {
     updateMediaSessionState();
   }
 });

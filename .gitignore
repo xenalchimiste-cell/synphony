@@ -31,4 +31,7 @@ yarn-error.log
 
 ###> Environment ###
 .env
+# Fichiers audio uploadés (trop lourds pour Git)
 /public/music/uploads/
+.vercel
+.env*

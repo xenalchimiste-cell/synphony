@@ -92,9 +92,21 @@ function isStaticAsset(pathname) {
 }
 
 /**
- * Gestion des requêtes audio : cache-first avec fallback réseau
+ * Gestion des requêtes audio : réseau en priorité pour les range requests (iOS Safari),
+ * cache pour les requêtes complètes.
+ * 
+ * IMPORTANT: iOS Safari envoie des requêtes avec l'en-tête "Range" pour streamer l'audio.
+ * Si le Service Worker retourne une réponse 200 complète au lieu de 206 Partial Content,
+ * iOS interrompt la lecture en arrière-plan. On doit donc passer ces requêtes au réseau.
  */
 function handleAudioRequest(request) {
+  // Si c'est une range request (streaming iOS Safari), laisser passer au réseau directement.
+  // Le SW ne doit PAS intercepter ces requêtes pour éviter de casser la lecture en veille.
+  if (request.headers.get('Range')) {
+    return fetch(request);
+  }
+
+  // Pour les requêtes complètes (non-range) : cache-first avec fallback réseau
   return caches.match(request).then((response) => {
     if (response) {
       console.log('[Service Worker] Audio trouvé en cache:', request.url);
@@ -104,7 +116,7 @@ function handleAudioRequest(request) {
     console.log('[Service Worker] Téléchargement audio:', request.url);
     return fetch(request)
       .then((response) => {
-        // Vérifier que la réponse est valide
+        // Vérifier que la réponse est valide et complète (pas partielle)
         if (!response || response.status !== 200 || response.type === 'error') {
           return response;
         }
@@ -119,7 +131,6 @@ function handleAudioRequest(request) {
       })
       .catch((error) => {
         console.warn('[Service Worker] Erreur lors du téléchargement audio:', error);
-        // Retourner une réponse vide ou une alternative
         return new Response('Fichier audio indisponible', {
           status: 503,
           statusText: 'Service Unavailable',
@@ -127,6 +138,7 @@ function handleAudioRequest(request) {
       });
   });
 }
+
 
 /**
  * Gestion des requêtes statiques : cache-first avec fallback réseau
