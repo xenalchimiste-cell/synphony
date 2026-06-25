@@ -3,7 +3,7 @@
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.9.0",
-      "includeFiles": "{src/**,config/**,templates/**,vendor/**,public/**,bin/**,composer.json,composer.lock,symfony.lock}"
+      "includeFiles": "{.env,src/**,config/**,templates/**,vendor/**,public/**,bin/**,var/**,composer.json,composer.lock,symfony.lock}"
     }
   },
   "routes": [
@@ -13,6 +13,9 @@
     { "src": "/(.*)", "dest": "/api/index.php" }
   ],
   "env": {
+    "APP_ENV": "prod",
+    "APP_DEBUG": "0",
+    "APP_SECRET": "2b55f058097bafca7fb3d05b5cc42981",
     "DATABASE_URL": "sqlite:////tmp/data.db"
   },
   "headers": [
