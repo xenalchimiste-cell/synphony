@@ -30,8 +30,11 @@ yarn-error.log
 ###< Vercel ###
 
 ###> Environment ###
-.env
+# NE PAS ignorer .env (nécessaire pour Vercel / prod)
+# Ignorer seulement les fichiers avec secrets locaux
+.env.local
+.env.local.php
+.env.*.local
 # Fichiers audio uploadés (trop lourds pour Git)
 /public/music/uploads/
 .vercel
-.env*
