@@ -129,7 +129,7 @@
                 {% for track in tracks %}
                 <div class="track-item playable-track"
                      data-id="{{ track.id }}"
-                     data-src="{{ path('app_music_stream', {filename: track.filename}) }}"
+                     data-src="/music/uploads/{{ track.filename }}"
                      data-title="{{ track.title }}"
                      data-artist="{{ track.artist ?? 'Artiste inconnu' }}"
                      data-duration="{{ track.duration }}"
@@ -240,10 +240,10 @@
 
 <!-- Player Bar -->
 <div class="player" id="player" style="display:none;">
-    <audio id="audio" playsinline></audio>
+    <audio id="audio" playsinline webkit-playsinline x-webkit-airplay="allow"></audio>
 
     <!-- Left: cover + info -->
-    <div class="player-left">
+    <div class="player-left" id="player-left-tap" onclick="openMobilePlayer()" style="cursor:pointer">
         <div class="player-cover-wrap" id="player-cover-wrap">
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
         </div>
@@ -294,6 +294,65 @@
     </div>
 </div>
 
+<!-- ===== MOBILE FULL-SCREEN PLAYER OVERLAY ===== -->
+<div class="full-player" id="full-player" aria-modal="true" role="dialog" aria-label="Lecteur">
+    <div class="full-player-drag" id="full-player-drag"></div>
+    <div class="full-player-header">
+        <button class="fp-btn-close" id="fp-close" onclick="closeMobilePlayer()" aria-label="Fermer">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
+        <span class="full-player-label">En cours de lecture</span>
+        <div style="width:40px"></div>
+    </div>
+
+    <div class="full-player-cover-wrap" id="fp-cover-wrap">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="60" height="60" style="color:#444"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+    </div>
+
+    <div class="full-player-info">
+        <div class="fp-title" id="fp-title">Aucun morceau</div>
+        <div class="fp-artist" id="fp-artist">—</div>
+    </div>
+
+    <div class="full-player-timeline">
+        <div class="fp-progress-track">
+            <input type="range" id="fp-progress-range" class="fp-progress-range" min="0" max="1000" value="0" step="1">
+        </div>
+        <div class="fp-times">
+            <span id="fp-time-current">0:00</span>
+            <span id="fp-time-total">0:00</span>
+        </div>
+    </div>
+
+    <div class="full-player-controls">
+        <button class="fp-btn fp-btn-sm" id="fp-btn-shuffle" onclick="toggleShuffle()" aria-label="Aléatoire">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+        </button>
+        <button class="fp-btn" onclick="prevTrack()" aria-label="Précédent">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button class="fp-btn fp-play-btn" id="fp-btn-play" onclick="togglePlay()" aria-label="Lecture/Pause">
+            <svg id="fp-icon-play" viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="fp-icon-pause" viewBox="0 0 24 24" fill="currentColor" width="32" height="32" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="fp-btn" onclick="nextTrack()" aria-label="Suivant">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+        <button class="fp-btn fp-btn-sm" id="fp-btn-repeat" onclick="toggleRepeat()" aria-label="Répéter">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+        </button>
+    </div>
+
+    <div class="full-player-volume">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" style="color:#888;flex-shrink:0"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg>
+        <div class="fp-volume-track" id="fp-volume-track">
+            <div class="fp-volume-fill" id="fp-volume-fill" style="width:70%"></div>
+        </div>
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" style="color:#888;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+    </div>
+</div>
+<div class="full-player-backdrop" id="fp-backdrop" onclick="closeMobilePlayer()"></div>
+
 <script src="{{ asset('js/player.js') }}"></script>
 
 <!-- Enregistrement Service Worker pour PWA offline + lecture arrière-plan -->
@@ -303,7 +362,6 @@
       navigator.serviceWorker.register('/service-worker.js')
         .then(reg => {
           console.log('✓ Service Worker enregistré, scope:', reg.scope);
-          // Vérifier les mises à jour
           reg.addEventListener('updatefound', () => {
             console.log('🔄 Nouvelle version du Service Worker disponible');
           });

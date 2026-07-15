@@ -1,7 +1,7 @@
 {% macro home_card(track) %}
 <div class="home-card playable-track"
      data-id="{{ track.id }}"
-     data-src="{{ path('app_music_stream', {filename: track.filename}) }}"
+     data-src="/music/uploads/{{ track.filename }}"
      data-title="{{ track.title }}"
      data-artist="{{ track.artist ?? 'Artiste inconnu' }}"
      data-duration="{{ track.duration }}"

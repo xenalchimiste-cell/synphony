@@ -42,8 +42,7 @@ document.addEventListener("visibilitychange", async () => {
 let _iosAudioCtx = null;
 let _iosKeepAliveInterval = null;
 
-function startIosKeepAlive() {
-  if (_iosKeepAliveInterval) return;
+function initIosAudioContext() {
   try {
     if (!_iosAudioCtx) {
       _iosAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -51,6 +50,16 @@ function startIosKeepAlive() {
     if (_iosAudioCtx.state === "suspended") {
       _iosAudioCtx.resume();
     }
+  } catch (e) {
+    console.warn("Impossible d'initialiser l'AudioContext iOS:", e);
+  }
+}
+
+function startIosKeepAlive() {
+  initIosAudioContext();
+
+  if (_iosKeepAliveInterval) return;
+  try {
     _iosKeepAliveInterval = setInterval(() => {
       if (_iosAudioCtx && _iosAudioCtx.state !== "closed") {
         // Jouer un buffer vide (0.001 s) pour maintenir l'activité audio
@@ -183,45 +192,40 @@ setupMediaSession();
 // === INIT: collect all playable tracks from DOM ===
 function syncTracks() {
   const items = document.querySelectorAll(".playable-track");
-  tracks = Array.from(items).map((el) => ({
-    id: el.dataset.id,
-    src: el.dataset.src,
-    title: el.dataset.title,
-    artist: el.dataset.artist,
-    cover: el.dataset.cover || null,
-    duration: el.dataset.duration ? parseInt(el.dataset.duration) : null,
-    el,
-  }));
+  tracks = Array.from(items).map((el) => {
+    // Liaison directe du clic (évite les restrictions de clic délégué sur iOS Safari)
+    if (!el.dataset.bound) {
+      el.dataset.bound = "true";
+      el.addEventListener("click", (e) => {
+        const delBtn = e.target.closest(".track-delete");
+        if (delBtn) {
+          e.stopPropagation();
+          deleteTrack(el.dataset.id, el);
+          return;
+        }
+
+        const idx = getTrackIndexById(el.dataset.id);
+        if (idx !== -1) playIdx(idx);
+      });
+    }
+    return {
+      id: el.dataset.id,
+      src: el.dataset.src,
+      title: el.dataset.title,
+      artist: el.dataset.artist,
+      cover: el.dataset.cover || null,
+      duration: el.dataset.duration ? parseInt(el.dataset.duration) : null,
+      el,
+    };
+  });
 }
 
 function getTrackIndexById(id) {
   return tracks.findIndex((t) => t.id === String(id));
 }
 
-function onPlayableClick(e) {
-  const delBtn = e.target.closest(".track-delete");
-  if (delBtn) {
-    e.stopPropagation();
-    const item = delBtn.closest(".playable-track");
-    if (item) deleteTrack(item.dataset.id, item);
-    return;
-  }
-
-  const item = e.target.closest(".playable-track");
-  if (!item) return;
-
-  const idx = getTrackIndexById(item.dataset.id);
-  if (idx !== -1) playIdx(idx);
-}
-
-function bindPlayableEvents() {
-  document.removeEventListener("click", onPlayableClick);
-  document.addEventListener("click", onPlayableClick);
-}
-
 function initTracks() {
   syncTracks();
-  bindPlayableEvents();
 }
 
 initTracks();
@@ -291,6 +295,10 @@ function isSameSrc(trackSrc) {
 function playIdx(idx) {
   if (idx < 0 || idx >= tracks.length) return;
 
+  // Init de l'AudioContext keep-alive iOS immédiatement dans le geste utilisateur
+  startIosKeepAlive();
+  requestWakeLock();
+
   const t = tracks[idx];
 
   // Même piste : pause/reprise sans recharger (évite le retour à 0)
@@ -327,14 +335,14 @@ function playIdx(idx) {
       // Mise à jour Media Session pour l'écran de verrouillage
       updateMediaSessionMetadata(t);
       updateMediaSessionState();
-      // Activer Wake Lock + keep-alive iOS pour maintenir l'audio en veille
-      requestWakeLock();
-      startIosKeepAlive();
     })
     .catch((err) => console.error("Playback error:", err));
 }
 
 function togglePlay() {
+  startIosKeepAlive();
+  requestWakeLock();
+
   if (currentIdx === -1 && tracks.length > 0) {
     playIdx(0);
     return;
@@ -353,6 +361,9 @@ function togglePlay() {
 }
 
 function prevTrack() {
+  startIosKeepAlive();
+  requestWakeLock();
+
   if (tracks.length === 0) return;
   let idx = currentIdx - 1;
   if (idx < 0) idx = tracks.length - 1;
@@ -360,6 +371,9 @@ function prevTrack() {
 }
 
 function nextTrack() {
+  startIosKeepAlive();
+  requestWakeLock();
+
   if (tracks.length === 0) return;
   let idx;
   if (isShuffle) {
@@ -374,11 +388,15 @@ function nextTrack() {
 function toggleShuffle() {
   isShuffle = !isShuffle;
   document.getElementById("btn-shuffle").classList.toggle("active", isShuffle);
+  const fpBtn = document.getElementById("fp-btn-shuffle");
+  if (fpBtn) fpBtn.classList.toggle("active", isShuffle);
 }
 
 function toggleRepeat() {
   isRepeat = !isRepeat;
   document.getElementById("btn-repeat").classList.toggle("active", isRepeat);
+  const fpBtn = document.getElementById("fp-btn-repeat");
+  if (fpBtn) fpBtn.classList.toggle("active", isRepeat);
 }
 
 // === AUDIO EVENTS ===
@@ -520,6 +538,9 @@ function updatePlayUI() {
   } else {
     player.classList.remove("is-playing");
   }
+
+  // Sync full-screen mobile player play/pause icons
+  syncFullPlayerPlayIcon();
 }
 
 function setCoverElement(el, cover, fallbackHtml) {
@@ -555,6 +576,9 @@ function updatePlayerInfo(t) {
   document.getElementById("snp-title").textContent = t.title;
   document.getElementById("snp-artist").textContent = t.artist || "—";
   snp.style.display = "flex";
+
+  // Sync full-screen mobile player (met à jour cover, titre, artiste)
+  syncFullPlayerUI();
 }
 
 function formatTime(secs) {
@@ -772,7 +796,6 @@ function addTrackToLibrary(track) {
 
   listEl.prepend(el);
   syncTracks();
-  bindPlayableEvents();
 
   // Update track count
   const countEl = document.getElementById("track-count");
@@ -1112,7 +1135,7 @@ async function pollJobStatus(jobId, statusEl) {
     attempts++;
 
     try {
-      const res = await fetch(`${API_URL}/job/${jobId}`);
+      const res = await fetch(`${API_URL}/job/status/${jobId}`);
       if (!res.ok) {
         showImportStatus(statusEl, "error", "❌ Erreur lors du suivi du téléchargement");
         return;
@@ -1185,3 +1208,208 @@ if (searchInput) {
       .join("");
   });
 }
+
+// === HOME CARDS CLICK ===
+// Wire up home-card play buttons (rendered server-side via Twig)
+function bindHomeCards() {
+  document.querySelectorAll(".home-card.playable-track:not([data-bound])").forEach((el) => {
+    el.dataset.bound = "true";
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = getTrackIndexById(el.dataset.id);
+      if (idx !== -1) playIdx(idx);
+    });
+    const btn = el.querySelector(".home-card-play");
+    if (btn) {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idx = getTrackIndexById(el.dataset.id);
+        if (idx !== -1) playIdx(idx);
+      });
+    }
+  });
+}
+
+// Run on page load (home cards are pre-rendered by Twig)
+bindHomeCards();
+
+// === MOBILE FULL-SCREEN PLAYER ===
+const fullPlayer = document.getElementById("full-player");
+const fpBackdrop = document.getElementById("fp-backdrop");
+const fpCoverWrap = document.getElementById("fp-cover-wrap");
+const fpTitle = document.getElementById("fp-title");
+const fpArtist = document.getElementById("fp-artist");
+const fpProgressRange = document.getElementById("fp-progress-range");
+const fpTimeCurrent = document.getElementById("fp-time-current");
+const fpTimeTotal = document.getElementById("fp-time-total");
+const fpIconPlay = document.getElementById("fp-icon-play");
+const fpIconPause = document.getElementById("fp-icon-pause");
+const fpBtnShuffle = document.getElementById("fp-btn-shuffle");
+const fpBtnRepeat = document.getElementById("fp-btn-repeat");
+const fpVolumeTrack = document.getElementById("fp-volume-track");
+const fpVolumeFill = document.getElementById("fp-volume-fill");
+
+function openMobilePlayer() {
+  if (!fullPlayer || window.innerWidth > 768) return;
+  if (currentIdx === -1) return; // nothing playing yet
+  fullPlayer.classList.add("open");
+  if (fpBackdrop) fpBackdrop.classList.add("open");
+  document.body.style.overflow = "hidden";
+  syncFullPlayerUI();
+}
+
+function closeMobilePlayer() {
+  if (!fullPlayer) return;
+  fullPlayer.classList.remove("open");
+  if (fpBackdrop) fpBackdrop.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function syncFullPlayerUI() {
+  if (!fullPlayer) return;
+  const t = currentIdx >= 0 ? tracks[currentIdx] : null;
+  if (!t) return;
+
+  // Title & artist
+  if (fpTitle) fpTitle.textContent = t.title || "Titre inconnu";
+  if (fpArtist) fpArtist.textContent = t.artist || "—";
+
+  // Cover
+  if (fpCoverWrap) {
+    if (t.cover) {
+      fpCoverWrap.innerHTML = `<img src="${t.cover}" alt="">`;
+    } else {
+      fpCoverWrap.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="60" height="60" style="color:#444"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+    }
+  }
+
+  // Sync play/pause icon
+  syncFullPlayerPlayIcon();
+
+  // Sync shuffle/repeat
+  if (fpBtnShuffle) fpBtnShuffle.classList.toggle("active", isShuffle);
+  if (fpBtnRepeat) fpBtnRepeat.classList.toggle("active", isRepeat);
+
+  // Sync volume
+  if (fpVolumeFill) fpVolumeFill.style.width = (volume * 100) + "%";
+
+  // Sync is-playing class for cover animation
+  if (isPlaying) {
+    fullPlayer.classList.add("is-playing");
+  } else {
+    fullPlayer.classList.remove("is-playing");
+  }
+}
+
+function syncFullPlayerPlayIcon() {
+  if (!fpIconPlay || !fpIconPause) return;
+  fpIconPlay.style.display = isPlaying ? "none" : "block";
+  fpIconPause.style.display = isPlaying ? "block" : "none";
+
+  if (fullPlayer) {
+    if (isPlaying) {
+      fullPlayer.classList.add("is-playing");
+    } else {
+      fullPlayer.classList.remove("is-playing");
+    }
+  }
+}
+
+// Keep full-player timeline in sync with main audio
+audio.addEventListener("timeupdate", () => {
+  if (!fpProgressRange || !fpTimeCurrent || !fpTimeTotal) return;
+  if (!canSeek()) return;
+  const pct = audio.currentTime / audio.duration;
+  fpProgressRange.value = Math.round(pct * 1000);
+  fpTimeCurrent.textContent = formatTime(audio.currentTime);
+  fpTimeTotal.textContent = formatTime(audio.duration);
+});
+
+// Full player seek
+if (fpProgressRange) {
+  let fpSeeking = false;
+  fpProgressRange.addEventListener("input", () => {
+    if (!canSeek()) return;
+    fpSeeking = true;
+    seekToPercent(fpProgressRange.value / 1000);
+  });
+  fpProgressRange.addEventListener("change", () => {
+    fpSeeking = false;
+  });
+}
+
+// Full player volume
+if (fpVolumeTrack) {
+  let fpDraggingVolume = false;
+
+  function fpSetVolumeFromEvent(e) {
+    const rect = fpVolumeTrack.getBoundingClientRect();
+    if (!rect.width) return volume;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }
+
+  fpVolumeTrack.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    fpDraggingVolume = true;
+    fpVolumeTrack.setPointerCapture(e.pointerId);
+    const v = fpSetVolumeFromEvent(e);
+    setVolumePercent(v);
+    if (fpVolumeFill) fpVolumeFill.style.width = (v * 100) + "%";
+  });
+
+  fpVolumeTrack.addEventListener("pointermove", (e) => {
+    if (!fpDraggingVolume) return;
+    const v = fpSetVolumeFromEvent(e);
+    setVolumePercent(v);
+    if (fpVolumeFill) fpVolumeFill.style.width = (v * 100) + "%";
+  });
+
+  fpVolumeTrack.addEventListener("pointerup", (e) => {
+    if (!fpDraggingVolume) return;
+    fpDraggingVolume = false;
+    fpVolumeTrack.releasePointerCapture(e.pointerId);
+  });
+
+  fpVolumeTrack.addEventListener("pointercancel", () => {
+    fpDraggingVolume = false;
+  });
+}
+
+
+// Swipe down to close
+(function setupSwipeToClose() {
+  if (!fullPlayer) return;
+  let startY = 0;
+  let isDragging = false;
+
+  fullPlayer.addEventListener("touchstart", (e) => {
+    // Only initiate swipe from drag handle or header
+    const target = e.target;
+    const isDragHandle = target.closest(".full-player-drag") || target.closest(".full-player-header");
+    if (!isDragHandle) return;
+    startY = e.touches[0].clientY;
+    isDragging = true;
+    fullPlayer.style.transition = "none";
+  }, { passive: true });
+
+  fullPlayer.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 0) {
+      fullPlayer.style.transform = `translateY(${dy}px)`;
+    }
+  }, { passive: true });
+
+  fullPlayer.addEventListener("touchend", (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    fullPlayer.style.transition = "";
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > 120) {
+      closeMobilePlayer();
+    } else {
+      fullPlayer.style.transform = "";
+    }
+  }, { passive: true });
+})();

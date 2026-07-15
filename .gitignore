@@ -36,6 +36,6 @@ yarn-error.log
 .env.local
 .env.local.php
 .env.*.local
-# Fichiers audio uploadés (trop lourds pour Git)
-/public/music/uploads/
+# Fichiers audio uploadés (commités pour déploiement CDN Vercel)
+#/public/music/uploads/
 .vercel

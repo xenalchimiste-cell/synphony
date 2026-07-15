@@ -115,7 +115,7 @@ class MusicController extends AbstractController
                 'album' => $track->getAlbum() ?? '',
                 'duration' => $track->getDuration(),
                 'genre' => $track->getGenre() ?? '',
-                'src' => $this->generateUrl('app_music_stream', ['filename' => $uniqueFilename]),
+                'src' => '/music/uploads/' . $uniqueFilename,
                 'cover' => null,
             ]);
         } catch (\Throwable $e) {
@@ -152,7 +152,7 @@ class MusicController extends AbstractController
                 'album' => $t->getAlbum() ?? '',
                 'duration' => $t->getDuration(),
                 'genre' => $t->getGenre() ?? '',
-                'src' => $this->generateUrl('app_music_stream', ['filename' => $t->getFilename()]),
+                'src' => '/music/uploads/' . $t->getFilename(),
                 'cover' => $t->getCoverPath() ? '/' . ltrim($t->getCoverPath(), '/') : null,
             ];
         }
@@ -279,7 +279,7 @@ class MusicController extends AbstractController
                 'album' => $track->getAlbum() ?? '',
                 'duration' => $track->getDuration(),
                 'genre' => $track->getGenre() ?? '',
-                'src' => $this->generateUrl('app_music_stream', ['filename' => $result['filename']]),
+                'src' => '/music/uploads/' . $result['filename'],
                 'cover' => null,
             ]
         ]);
@@ -350,7 +350,7 @@ class MusicController extends AbstractController
             'artist'   => $track->getArtist() ?? 'Artiste inconnu',
             'album'    => $track->getAlbum() ?? '',
             'duration' => $track->getDuration(),
-            'src'      => $this->generateUrl('app_music_stream', ['filename' => $track->getFilename()]),
+            'src'      => '/music/uploads/' . $track->getFilename(),
             'cover'    => $track->getCoverPath() ? '/' . $track->getCoverPath() : null,
         ];
     }
