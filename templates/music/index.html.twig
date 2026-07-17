@@ -129,18 +129,18 @@
                 {% for track in tracks %}
                 <div class="track-item playable-track"
                      data-id="{{ track.id }}"
-                     data-src="/music/uploads/{{ track.filename }}"
+                     data-src="{{ track.filename starts with 'http' ? track.filename : '/music/uploads/' ~ track.filename }}"
                      data-title="{{ track.title }}"
                      data-artist="{{ track.artist ?? 'Artiste inconnu' }}"
                      data-duration="{{ track.duration }}"
-                     {% if track.coverPath %}data-cover="{{ asset(track.coverPath) }}"{% endif %}>
+                     {% if track.coverPath %}data-cover="{{ track.coverPath starts with 'http' ? track.coverPath : asset(track.coverPath) }}"{% endif %}>
                     <div class="track-num">
                         <span class="mini-eq-num">{{ loop.index }}</span>
                         <span class="mini-eq"><span></span><span></span><span></span></span>
                     </div>
                     <div class="track-cover">
                         {% if track.coverPath %}
-                            <img src="{{ asset(track.coverPath) }}" alt="">
+                            <img src="{{ track.coverPath starts with 'http' ? track.coverPath : asset(track.coverPath) }}" alt="">
                         {% else %}
                             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
                         {% endif %}

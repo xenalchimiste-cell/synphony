@@ -37,5 +37,5 @@ yarn-error.log
 .env.local.php
 .env.*.local
 # Fichiers audio uploadés (commités pour déploiement CDN Vercel)
-#/public/music/uploads/
+/public/music/uploads/
 .vercel

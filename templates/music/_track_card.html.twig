@@ -1,14 +1,14 @@
 {% macro home_card(track) %}
 <div class="home-card playable-track"
      data-id="{{ track.id }}"
-     data-src="/music/uploads/{{ track.filename }}"
+     data-src="{{ track.filename starts with 'http' ? track.filename : '/music/uploads/' ~ track.filename }}"
      data-title="{{ track.title }}"
      data-artist="{{ track.artist ?? 'Artiste inconnu' }}"
      data-duration="{{ track.duration }}"
-     {% if track.coverPath %}data-cover="{{ asset(track.coverPath) }}"{% endif %}>
+     {% if track.coverPath %}data-cover="{{ track.coverPath starts with 'http' ? track.coverPath : asset(track.coverPath) }}"{% endif %}>
     <div class="home-card-cover">
         {% if track.coverPath %}
-            <img src="{{ asset(track.coverPath) }}" alt="{{ track.title }}">
+            <img src="{{ track.coverPath starts with 'http' ? track.coverPath : asset(track.coverPath) }}" alt="{{ track.title }}">
         {% else %}
             <div class="home-card-fallback">🎵</div>
         {% endif %}

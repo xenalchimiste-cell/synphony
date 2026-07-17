@@ -105,8 +105,19 @@ class MusicController extends AbstractController
                 ->setFilename($uniqueFilename)
                 ->setGenre($genre);
 
+            // Attempt to upload to Vercel Blob
+            $blobUrl = $this->uploadToBlob($uploadDir . $uniqueFilename, $uniqueFilename);
+            if ($blobUrl) {
+                // If blob upload succeeded, delete local file from /tmp to save space
+                unlink($uploadDir . $uniqueFilename);
+                // On Vercel, the source is the external Blob URL
+                $track->setFilename($blobUrl);
+            }
+
             $em->persist($track);
             $em->flush();
+
+            $src = $blobUrl ? $blobUrl : '/music/uploads/' . $uniqueFilename;
 
             return new JsonResponse([
                 'id' => $track->getId(),
@@ -115,7 +126,7 @@ class MusicController extends AbstractController
                 'album' => $track->getAlbum() ?? '',
                 'duration' => $track->getDuration(),
                 'genre' => $track->getGenre() ?? '',
-                'src' => '/music/uploads/' . $uniqueFilename,
+                'src' => $src,
                 'cover' => null,
             ]);
         } catch (\Throwable $e) {
@@ -145,6 +156,15 @@ class MusicController extends AbstractController
         $tracks = $trackRepository->findBy([], ['uploadedAt' => 'DESC']);
         $data = [];
         foreach ($tracks as $t) {
+            $filename = $t->getFilename();
+            $src = str_starts_with($filename, 'http') ? $filename : '/music/uploads/' . $filename;
+            
+            $coverPath = $t->getCoverPath();
+            $cover = null;
+            if ($coverPath) {
+                $cover = str_starts_with($coverPath, 'http') ? $coverPath : '/' . ltrim($coverPath, '/');
+            }
+
             $data[] = [
                 'id' => $t->getId(),
                 'title' => $t->getTitle(),
@@ -152,8 +172,8 @@ class MusicController extends AbstractController
                 'album' => $t->getAlbum() ?? '',
                 'duration' => $t->getDuration(),
                 'genre' => $t->getGenre() ?? '',
-                'src' => '/music/uploads/' . $t->getFilename(),
-                'cover' => $t->getCoverPath() ? '/' . ltrim($t->getCoverPath(), '/') : null,
+                'src' => $src,
+                'cover' => $cover,
             ];
         }
 
@@ -267,8 +287,17 @@ class MusicController extends AbstractController
             ->setFilename($result['filename'])
             ->setGenre($genre);
 
+        // Attempt Vercel Blob upload
+        $blobUrl = $this->uploadToBlob($uploadDir . $result['filename'], $result['filename']);
+        if ($blobUrl) {
+            unlink($uploadDir . $result['filename']);
+            $track->setFilename($blobUrl);
+        }
+
         $em->persist($track);
         $em->flush();
+
+        $src = $blobUrl ? $blobUrl : '/music/uploads/' . $result['filename'];
 
         return new JsonResponse([
             'success' => true,
@@ -279,10 +308,60 @@ class MusicController extends AbstractController
                 'album' => $track->getAlbum() ?? '',
                 'duration' => $track->getDuration(),
                 'genre' => $track->getGenre() ?? '',
-                'src' => '/music/uploads/' . $result['filename'],
+                'src' => $src,
                 'cover' => null,
             ]
         ]);
+    }
+
+    #[Route('/install', name: 'app_install', methods: ['GET'])]
+    public function install(EntityManagerInterface $em): Response
+    {
+        try {
+            $schemaTool = new \Doctrine\ORM\Tools\SchemaTool($em);
+            $metadata = $em->getMetadataFactory()->getAllMetadata();
+            // Drop then create
+            $schemaTool->dropSchema($metadata);
+            $schemaTool->createSchema($metadata);
+            return new Response('Base de données initialisée avec succès ! Tu peux retourner à la page d\'accueil.');
+        } catch (\Throwable $e) {
+            return new Response('Erreur : ' . $e->getMessage());
+        }
+    }
+
+    private function uploadToBlob(string $filepath, string $filename): ?string
+    {
+        $token = $_ENV['BLOB_READ_WRITE_TOKEN'] ?? $_SERVER['BLOB_READ_WRITE_TOKEN'] ?? null;
+        if (!$token) {
+            return null; // Pas de Vercel Blob configuré, on retournera null pour utiliser le stockage local
+        }
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, 'https://blob.vercel-storage.com/' . rawurlencode($filename));
+        curl_setopt($ch, CURLOPT_PUT, true);
+        
+        $fileSize = filesize($filepath);
+        $fp = fopen($filepath, 'r');
+        curl_setopt($ch, CURLOPT_INFILE, $fp);
+        curl_setopt($ch, CURLOPT_INFILESIZE, $fileSize);
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $token,
+            'x-api-version: 7' // Version API Vercel Blob
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        
+        $response = curl_exec($ch);
+        curl_close($ch);
+        fclose($fp);
+
+        if ($response) {
+            $data = json_decode($response, true);
+            if (isset($data['url'])) {
+                return $data['url'];
+            }
+        }
+        return null;
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -330,6 +409,25 @@ class MusicController extends AbstractController
             }
         } catch (\Exception $e) {}
 
+        // Upload audio and cover to Vercel Blob if available
+        $blobAudioUrl = $this->uploadToBlob($filepath, $filename);
+        if ($blobAudioUrl) {
+            unlink($filepath); // Cleanup local file
+            $filename = $blobAudioUrl; // Use URL as filename
+            
+            if ($coverPath) {
+                // coverPath might be "music/uploads/dz_..._cover.jpg"
+                $coverLocalPath = $this->getParameter('kernel.project_dir') . '/public/' . $coverPath;
+                if (file_exists($coverLocalPath)) {
+                    $blobCoverUrl = $this->uploadToBlob($coverLocalPath, basename($coverPath));
+                    if ($blobCoverUrl) {
+                        unlink($coverLocalPath);
+                        $coverPath = $blobCoverUrl;
+                    }
+                }
+            }
+        }
+
         $track = new Track();
         $track->setTitle($title)
               ->setArtist($artist)
@@ -344,14 +442,25 @@ class MusicController extends AbstractController
 
     private function trackToArray(Track $track): array
     {
+        $filename = $track->getFilename();
+        // If filename starts with http, it's a blob url. Otherwise, it's a local file.
+        $src = str_starts_with($filename, 'http') ? $filename : '/music/uploads/' . $filename;
+        
+        $cover = $track->getCoverPath();
+        if ($cover) {
+            $coverUrl = str_starts_with($cover, 'http') ? $cover : '/' . ltrim($cover, '/');
+        } else {
+            $coverUrl = null;
+        }
+
         return [
             'id'       => $track->getId(),
             'title'    => $track->getTitle(),
             'artist'   => $track->getArtist() ?? 'Artiste inconnu',
             'album'    => $track->getAlbum() ?? '',
             'duration' => $track->getDuration(),
-            'src'      => '/music/uploads/' . $track->getFilename(),
-            'cover'    => $track->getCoverPath() ? '/' . $track->getCoverPath() : null,
+            'src'      => $src,
+            'cover'    => $coverUrl,
         ];
     }
 
